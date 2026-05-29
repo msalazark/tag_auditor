@@ -1,13 +1,15 @@
 """
-Orquestador principal del Tag Audit Tool.
-Coordina M3 → M2 → M1 → M4 → M5 → M6 en un contexto async único de Playwright.
+Orquestador principal v2.
+Carga y valida la spec del usuario contra spec_schema.json antes de auditar.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
+import jsonschema
 from playwright.async_api import async_playwright
 
 from modules.datalayer_recorder import DataLayerRecorder
@@ -17,25 +19,53 @@ from modules.interaction_simulator import InteractionSimulator
 from modules.report_generator import ReportGenerator
 from modules.spec_validator import SpecValidator
 
+_SCHEMA_PATH = Path(__file__).parent / "specs" / "spec_schema.json"
+
+
+class SpecError(ValueError):
+    """La spec del usuario no cumple el schema."""
+
 
 class TagAuditor:
     def __init__(
         self,
-        spec_path: str = "specs/default_spec.json",
+        spec_path: str,
         headless: bool = True,
         timeout: int = 3,
         output_dir: str = "reports",
     ) -> None:
-        self._spec_path = spec_path
-        self._headless = headless
-        self._timeout = timeout
+        self._spec_path  = spec_path
+        self._headless   = headless
+        self._timeout    = timeout
         self._output_dir = output_dir
 
+    # ── carga y validacion de spec ────────────────────────────────────────────
+
+    def load_spec(self) -> dict[str, Any]:
+        path = Path(self._spec_path)
+        try:
+            with open(path, encoding="utf-8") as f:
+                spec = json.load(f)
+        except FileNotFoundError:
+            raise SpecError(f"Archivo de spec no encontrado: {path}")
+        except json.JSONDecodeError as exc:
+            raise SpecError(f"JSON invalido en {path}: {exc}")
+
+        # Validar contra spec_schema.json
+        try:
+            schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+            jsonschema.validate(instance=spec, schema=schema)
+        except jsonschema.ValidationError as exc:
+            raise SpecError(f"Spec no cumple el schema: {exc.message} (path: {list(exc.path)})")
+
+        spec["_filename"] = path.name
+        return spec
+
+    # ── auditoria principal ───────────────────────────────────────────────────
+
     async def run(self, url: str) -> dict[str, Any]:
-        """
-        Ejecuta auditoría completa sobre `url`.
-        Retorna dict con todos los resultados + paths de reportes.
-        """
+        spec = self.load_spec()
+
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=self._headless)
             context = await browser.new_context(
@@ -48,11 +78,11 @@ class TagAuditor:
             )
             page = await context.new_page()
 
-            # M3 — instalar proxy dataLayer ANTES de cualquier navegación
+            # M3 — proxy dataLayer ANTES de cualquier script
             recorder = DataLayerRecorder()
             await recorder.install(page)
 
-            # M2 — registrar interceptor de requests ANTES de navegar
+            # M2 — interceptor de requests ANTES de navegar
             interceptor = GA4Interceptor()
             interceptor.install(page)
 
@@ -60,50 +90,50 @@ class TagAuditor:
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
             except Exception as exc:
-                print(f"  [warn] goto timeout/error: {exc} — continuando con lo capturado")
+                print(f"  [warn] navegacion: {exc} -- continuando con lo capturado")
 
-            # Espera extra configurada por el usuario
             await asyncio.sleep(self._timeout)
 
-            # M1 — inspeccionar GTM/GA4 en el DOM
+            # M1 — inspeccion del DOM
             inspector = GTMInspector()
             gtm_info = await inspector.inspect(page)
 
-            # M4 — simulación de interacciones
+            # M4 — simulacion de interacciones
             simulator = InteractionSimulator(recorder)
             actions = await simulator.run(page)
 
-            # Recopilar datos finales
-            datalayer_events = await recorder.get_events()
-            ga4_hits = interceptor.hits
+            dl_events   = await recorder.get_events()
+            ga4_hits    = interceptor.hits
             pixel_types = interceptor.get_detected_pixel_types()
 
             await browser.close()
 
-        # M5 — validar contra spec
-        validator = SpecValidator(self._spec_path)
-        validation = validator.validate(datalayer_events, ga4_hits)
+        # M5 — validacion contra spec
+        validator  = SpecValidator(spec)
+        validation = validator.validate(dl_events, ga4_hits)
 
-        # M6 — generar reportes
+        # M6 — generacion de reportes
         generator = ReportGenerator(self._output_dir)
         html_path, json_path = generator.generate(
             url=url,
+            spec_meta=spec,
             gtm_info=gtm_info,
             ga4_hits=ga4_hits,
             pixel_types=pixel_types,
-            datalayer_events=datalayer_events,
+            dl_events=dl_events,
             validation=validation,
             actions=actions,
         )
 
         return {
-            "url": url,
-            "gtm_info": gtm_info,
-            "ga4_hits": ga4_hits,
-            "pixel_types": pixel_types,
-            "datalayer_events": datalayer_events,
-            "validation": validation,
-            "actions": actions,
-            "html_report": str(html_path),
-            "json_report": str(json_path),
+            "url":            url,
+            "spec":           spec,
+            "gtm_info":       gtm_info,
+            "ga4_hits":       ga4_hits,
+            "pixel_types":    pixel_types,
+            "dl_events":      dl_events,
+            "validation":     validation,
+            "actions":        actions,
+            "html_report":    str(html_path),
+            "json_report":    str(json_path),
         }

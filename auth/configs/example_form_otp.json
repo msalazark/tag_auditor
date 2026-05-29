@@ -1,0 +1,25 @@
+{
+  "_comment": "Formulario con OTP por SMS o email — requiere intervención humana",
+  "domain": "secure.example.com",
+  "strategy": "form_login",
+  "login_url": "https://secure.example.com/login",
+  "may_require_interaction": true,
+  "notification_mode": "desktop",
+  "interaction_timeout": 180,
+  "webhook_url": null,
+  "selectors": {
+    "username": "input[name='email']",
+    "password": "input[name='password']",
+    "submit": "button[type='submit']"
+  },
+  "success_check": {
+    "type": "url_change",
+    "expected_url_contains": "/home"
+  },
+  "credentials_env": {
+    "username": "AUDIT_USER",
+    "password": "AUDIT_PASS"
+  },
+  "session_file": "auth/sessions/secure_example_session.json",
+  "session_ttl_hours": 4
+}

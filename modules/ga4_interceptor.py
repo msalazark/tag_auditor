@@ -1,18 +1,17 @@
 """
-M2 - GA4 Hit Interceptor
-Captura requests de red hacia GA4, Meta Pixel, TikTok, LinkedIn y otros pixels
-registrando el listener ANTES de la navegación.
+M2 - GA4 Hit Interceptor v2
+Intercepta requests de red hacia GA4 y pixels de terceros antes de navegar.
+Agrega deteccion de Hotjar y Microsoft Clarity.
 """
 from __future__ import annotations
 
 import time
-from urllib.parse import parse_qs, urlparse
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from playwright.async_api import Page, Request
 
 
-# Endpoints GA4
 _GA4_ENDPOINTS = (
     "analytics.google.com/g/collect",
     "analytics.google.com/j/collect",
@@ -20,90 +19,82 @@ _GA4_ENDPOINTS = (
     "google-analytics.com/collect",
 )
 
-# Otros pixels de terceros
 _PIXEL_PATTERNS: dict[str, tuple[str, ...]] = {
-    "meta": ("connect.facebook.net", "facebook.com/tr"),
-    "tiktok": ("analytics.tiktok.com",),
-    "linkedin": ("snap.licdn.com", "px.ads.linkedin.com"),
-    "twitter": ("analytics.twitter.com", "t.co/i/adsct"),
-    "google_ads": ("googleads.g.doubleclick.net",),
+    "meta":        ("connect.facebook.net", "facebook.com/tr"),
+    "tiktok":      ("analytics.tiktok.com",),
+    "linkedin":    ("snap.licdn.com", "px.ads.linkedin.com"),
+    "twitter":     ("analytics.twitter.com", "t.co/i/adsct"),
+    "hotjar":      ("static.hotjar.com", "script.hotjar.com"),
+    "clarity":     ("clarity.ms", "www.clarity.ms"),
+    "google_ads":  ("googleads.g.doubleclick.net", "pagead2.googlesyndication.com"),
 }
 
 
-def _parse_ga4_params(url: str) -> dict[str, Any]:
-    parsed = urlparse(url)
-    qs = parse_qs(parsed.query)
-    # Aplanar listas de un solo elemento
-    flat: dict[str, Any] = {k: v[0] if len(v) == 1 else v for k, v in qs.items()}
+def _parse_ga4(url: str) -> dict[str, Any]:
+    """Parsea todos los parametros de un hit GA4."""
+    params = parse_qs(urlparse(url).query)
+    flat: dict[str, Any] = {k: v[0] if len(v) == 1 else v for k, v in params.items()}
 
-    # Extraer event params (ep.* string, epn.* numeric)
     event_params: dict[str, Any] = {}
     user_props: dict[str, Any] = {}
-    raw_clean: dict[str, Any] = {}
+    raw: dict[str, Any] = {}
 
-    for key, val in flat.items():
-        if key.startswith("ep."):
-            event_params[key[3:]] = val
-        elif key.startswith("epn."):
+    for k, v in flat.items():
+        if k.startswith("ep."):
+            event_params[k[3:]] = v
+        elif k.startswith("epn."):
             try:
-                event_params[key[4:]] = float(val)
+                event_params[k[4:]] = float(v)
             except (ValueError, TypeError):
-                event_params[key[4:]] = val
-        elif key.startswith("up."):
-            user_props[key[3:]] = val
-        elif key.startswith("upn."):
+                event_params[k[4:]] = v
+        elif k.startswith("up."):
+            user_props[k[3:]] = v
+        elif k.startswith("upn."):
             try:
-                user_props[key[4:]] = float(val)
+                user_props[k[4:]] = float(v)
             except (ValueError, TypeError):
-                user_props[key[4:]] = val
+                user_props[k[4:]] = v
         else:
-            raw_clean[key] = val
+            raw[k] = v
 
     return {
-        "event_name": flat.get("en", ""),
+        "event_name":     flat.get("en", ""),
         "measurement_id": flat.get("tid", ""),
-        "client_id": flat.get("cid", ""),
-        "session_id": flat.get("sid", ""),
-        "engagement_time": flat.get("_et", ""),
-        "event_params": event_params,
+        "client_id":      flat.get("cid", ""),
+        "session_id":     flat.get("sid", ""),
+        "event_params":   event_params,
         "user_properties": user_props,
-        "raw": raw_clean,
+        "raw":            raw,
     }
 
 
 class GA4Interceptor:
-    """Registra todos los hits de tracking que salen del browser."""
+    """Registra hits GA4 y detecciones de pixels de terceros."""
 
     def __init__(self) -> None:
         self._ga4_hits: list[dict[str, Any]] = []
         self._pixel_hits: list[dict[str, Any]] = []
 
     def install(self, page: Page) -> None:
-        """Registrar listener. Llamar ANTES de page.goto()."""
-        page.on("request", self._handle_request)
+        """Registrar listener ANTES de page.goto()."""
+        page.on("request", self._on_request)
 
-    def _handle_request(self, request: Request) -> None:
+    def _on_request(self, request: Request) -> None:
         url = request.url
         ts = int(time.time() * 1000)
 
-        # GA4
         for endpoint in _GA4_ENDPOINTS:
             if endpoint in url:
-                hit = _parse_ga4_params(url)
+                hit = _parse_ga4(url)
                 hit["timestamp"] = ts
                 hit["url"] = url
                 self._ga4_hits.append(hit)
                 return
 
-        # Otros pixels
         for pixel_type, patterns in _PIXEL_PATTERNS.items():
             for pattern in patterns:
                 if pattern in url:
-                    self._pixel_hits.append({
-                        "timestamp": ts,
-                        "type": pixel_type,
-                        "url": url,
-                    })
+                    self._pixel_hits.append({"timestamp": ts, "type": pixel_type, "url": url})
                     return
 
     @property
@@ -118,4 +109,4 @@ class GA4Interceptor:
         return sorted({p["type"] for p in self._pixel_hits})
 
     def get_measurement_ids(self) -> list[str]:
-        return sorted({h["measurement_id"] for h in self._ga4_hits if h["measurement_id"]})
+        return sorted({h["measurement_id"] for h in self._ga4_hits if h.get("measurement_id")})

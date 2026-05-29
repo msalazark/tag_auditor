@@ -1,54 +1,43 @@
 {
+  "site": "default.example.com",
+  "client": "Cliente Default",
   "version": "1.0",
-  "description": "Spec de eventos GA4 estándar — cobertura mínima esperada",
   "events": [
     {
-      "name": "page_view",
-      "trigger": "page_load",
-      "required_params": ["page_title", "page_location"],
-      "priority": "P1"
-    },
-    {
-      "name": "scroll",
-      "trigger": "scroll_depth",
-      "required_params": ["percent_scrolled"],
-      "priority": "P2"
-    },
-    {
-      "name": "click",
-      "trigger": "cta_click",
-      "required_params": ["link_text", "link_url"],
-      "priority": "P2"
-    },
-    {
-      "name": "generate_lead",
-      "trigger": "form_submit",
-      "required_params": ["form_name"],
-      "priority": "P1"
-    },
-    {
-      "name": "file_download",
-      "trigger": "pdf_click",
-      "required_params": ["file_name", "link_url"],
-      "priority": "P2"
-    },
-    {
+      "category": "ecommerce",
       "name": "view_item",
-      "trigger": "product_view",
-      "required_params": ["item_id", "item_name", "currency"],
-      "priority": "P2"
+      "description": "Vista de detalle de producto",
+      "trigger": "Carga de la página de producto",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event", "type": "string", "example": "view_item"},
+        {"key": "ecommerce.items[0].item_id", "type": "string", "example": "SKU-001"},
+        {"key": "ecommerce.items[0].item_name", "type": "string", "example": "Cemento Tipo I"},
+        {"key": "ecommerce.currency", "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value", "type": "number", "example": 29.9}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.items[0].item_category", "type": "string"},
+        {"key": "ecommerce.items[0].item_brand", "type": "string"}
+      ]
     },
     {
-      "name": "add_to_cart",
-      "trigger": "add_to_cart_click",
-      "required_params": ["item_id", "item_name", "value", "currency"],
-      "priority": "P1"
-    },
-    {
-      "name": "purchase",
-      "trigger": "order_confirmation",
-      "required_params": ["transaction_id", "value", "currency"],
-      "priority": "P1"
+      "category": "leads",
+      "name": "generate_lead",
+      "description": "Envío de formulario de contacto",
+      "trigger": "Submit de formulario de lead",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event", "type": "string", "example": "generate_lead"},
+        {"key": "form_name", "type": "string", "example": "formulario_contacto"},
+        {"key": "form_location", "type": "string", "example": "contacto"}
+      ],
+      "optional_params": [
+        {"key": "lead_type", "type": "string"},
+        {"key": "value", "type": "number"}
+      ]
     }
   ]
 }

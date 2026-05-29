@@ -1,0 +1,114 @@
+{
+  "site": "www.cementospacasmayo.com.pe",
+  "client": "Cementos Pacasmayo S.A.A.",
+  "version": "1.0",
+  "description": "Spec de auditoria para el sitio corporativo de Cementos Pacasmayo — ecommerce + leads + custom",
+  "events": [
+    {
+      "category": "ecommerce",
+      "name": "view_item",
+      "description": "Vista de pagina de producto (ficha tecnica de cemento/soluciones)",
+      "trigger": "Cuando el usuario carga la pagina de detalle de un producto",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.items[0].item_id",   "type": "string", "example": "SKU-CEMENTO-I"},
+        {"key": "ecommerce.items[0].item_name", "type": "string", "example": "Cemento Tipo I"},
+        {"key": "ecommerce.currency",           "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value",              "type": "number", "example": 29.90}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.items[0].item_category", "type": "string"},
+        {"key": "ecommerce.items[0].item_brand",    "type": "string"}
+      ]
+    },
+    {
+      "category": "leads",
+      "name": "generate_lead",
+      "description": "Envio exitoso de formulario de contacto",
+      "trigger": "Submit del formulario en /contacto/formulario-contacto",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",         "type": "string", "example": "generate_lead"},
+        {"key": "form_name",     "type": "string", "example": "formulario_contacto"},
+        {"key": "form_location", "type": "string", "example": "contacto"},
+        {"key": "lead_type",     "type": "string", "example": "consulta_producto"}
+      ],
+      "optional_params": [
+        {"key": "value",    "type": "number"},
+        {"key": "currency", "type": "string"}
+      ]
+    },
+    {
+      "category": "leads",
+      "name": "whatsapp_click",
+      "description": "Clic en boton de WhatsApp",
+      "trigger": "Clic en cualquier enlace que contenga wa.me",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",        "type": "string", "example": "whatsapp_click"},
+        {"key": "link_url",     "type": "string", "example": "https://wa.me/51974046807"},
+        {"key": "click_source", "type": "string", "example": "footer"}
+      ],
+      "optional_params": []
+    },
+    {
+      "category": "leads",
+      "name": "phone_click",
+      "description": "Clic en numero de telefono (tel:)",
+      "trigger": "Clic en enlace con href=tel:*",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event", "type": "string", "example": "phone_click"},
+        {"key": "phone", "type": "string", "example": "+5113176000"}
+      ],
+      "optional_params": []
+    },
+    {
+      "category": "custom",
+      "name": "product_category_view",
+      "description": "Vista de categoria de productos (Cementos, Concreto, Rapimix, etc.)",
+      "trigger": "Carga de pagina bajo /productos-servicios/soluciones-categorias/*",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",            "type": "string", "example": "product_category_view"},
+        {"key": "category_name",    "type": "string", "example": "cementos"},
+        {"key": "category_section", "type": "string", "example": "soluciones_categorias"}
+      ],
+      "optional_params": [
+        {"key": "item_count", "type": "number"}
+      ]
+    },
+    {
+      "category": "custom",
+      "name": "document_download",
+      "description": "Descarga de PDF (fichas tecnicas, memorias, reportes SEC/SMV)",
+      "trigger": "Clic en enlace con href que termina en .pdf",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",        "type": "string", "example": "document_download"},
+        {"key": "file_name",    "type": "string", "example": "memoria_integrada_2024.pdf"},
+        {"key": "file_url",     "type": "string", "example": "https://www.cementospacasmayo.com.pe/doc.pdf"},
+        {"key": "file_section", "type": "string", "example": "inversionistas"}
+      ],
+      "optional_params": []
+    },
+    {
+      "category": "custom",
+      "name": "scroll_depth",
+      "description": "Profundidad de scroll en la homepage",
+      "trigger": "Al alcanzar 25%, 50%, 75%, 90% de scroll vertical",
+      "priority": "P3",
+      "source": "ga4_hit",
+      "required_params": [
+        {"key": "percent_scrolled", "type": "number", "example": 50}
+      ],
+      "optional_params": []
+    }
+  ]
+}

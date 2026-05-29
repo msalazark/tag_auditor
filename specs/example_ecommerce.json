@@ -1,0 +1,112 @@
+{
+  "site": "tienda.ejemplo.com",
+  "client": "Tienda Ejemplo E-commerce",
+  "version": "1.0",
+  "description": "Spec estandar para sitios e-commerce con GA4 Enhanced Ecommerce",
+  "events": [
+    {
+      "category": "ecommerce",
+      "name": "view_item_list",
+      "description": "Vista de listado o categoria de productos",
+      "trigger": "Carga de pagina de categoria o resultado de busqueda",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.item_list_id",   "type": "string", "example": "category_cementos"},
+        {"key": "ecommerce.item_list_name", "type": "string", "example": "Cementos"},
+        {"key": "ecommerce.items",          "type": "array",  "example": []}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.items[0].item_id",   "type": "string"},
+        {"key": "ecommerce.items[0].item_name", "type": "string"}
+      ]
+    },
+    {
+      "category": "ecommerce",
+      "name": "view_item",
+      "description": "Vista de pagina de producto individual",
+      "trigger": "Carga de la pagina de detalle de un producto",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.items[0].item_id",   "type": "string", "example": "SKU-001"},
+        {"key": "ecommerce.items[0].item_name", "type": "string", "example": "Cemento Tipo I 42.5kg"},
+        {"key": "ecommerce.currency",           "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value",              "type": "number", "example": 29.90}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.items[0].item_category", "type": "string"},
+        {"key": "ecommerce.items[0].item_brand",    "type": "string"},
+        {"key": "ecommerce.items[0].price",         "type": "number"}
+      ]
+    },
+    {
+      "category": "ecommerce",
+      "name": "add_to_cart",
+      "description": "Producto agregado al carrito de compras",
+      "trigger": "Clic en boton Agregar al carrito",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.items[0].item_id",   "type": "string", "example": "SKU-001"},
+        {"key": "ecommerce.items[0].item_name", "type": "string", "example": "Cemento Tipo I"},
+        {"key": "ecommerce.currency",           "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value",              "type": "number", "example": 29.90}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.items[0].quantity", "type": "number"},
+        {"key": "ecommerce.items[0].price",    "type": "number"}
+      ]
+    },
+    {
+      "category": "ecommerce",
+      "name": "begin_checkout",
+      "description": "Inicio del proceso de pago",
+      "trigger": "Carga de la pagina de checkout o clic en Comprar",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.currency", "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value",    "type": "number", "example": 89.70},
+        {"key": "ecommerce.items",    "type": "array",  "example": []}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.coupon", "type": "string"}
+      ]
+    },
+    {
+      "category": "ecommerce",
+      "name": "purchase",
+      "description": "Compra completada exitosamente",
+      "trigger": "Carga de la pagina de confirmacion de pedido",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "ecommerce.transaction_id", "type": "string", "example": "T-12345"},
+        {"key": "ecommerce.currency",       "type": "string", "example": "PEN"},
+        {"key": "ecommerce.value",          "type": "number", "example": 89.70},
+        {"key": "ecommerce.items",          "type": "array",  "example": []}
+      ],
+      "optional_params": [
+        {"key": "ecommerce.tax",      "type": "number"},
+        {"key": "ecommerce.shipping", "type": "number"},
+        {"key": "ecommerce.coupon",   "type": "string"}
+      ]
+    },
+    {
+      "category": "custom",
+      "name": "search",
+      "description": "Busqueda interna en el sitio",
+      "trigger": "Cuando el usuario realiza una busqueda y ve resultados",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",       "type": "string", "example": "search"},
+        {"key": "search_term", "type": "string", "example": "cemento tipo i"}
+      ],
+      "optional_params": [
+        {"key": "results_count", "type": "number"}
+      ]
+    }
+  ]
+}

@@ -122,3 +122,10 @@ node_modules/
 # e.g., reports/, exports/
 reports/
 exports/
+
+# Auth — sesiones y screenshots (contienen cookies/tokens)
+auth/sessions/*.json
+auth/sessions/*.meta.json
+auth/screenshots/*.png
+!auth/sessions/.gitkeep
+!auth/screenshots/.gitkeep

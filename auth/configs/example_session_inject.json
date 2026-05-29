@@ -1,0 +1,8 @@
+{
+  "_comment": "Sesión exportada manualmente con export_session.py — para flows de login imposibles de automatizar",
+  "_how_to_generate": "python auth/export_session.py https://complex.example.com auth/sessions/manual_session.json",
+  "domain": "complex.example.com",
+  "strategy": "session_inject",
+  "session_file": "auth/sessions/manual_session.json",
+  "session_ttl_hours": 8
+}

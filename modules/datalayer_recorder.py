@@ -1,7 +1,7 @@
 """
-M3 - dataLayer Recorder
-Inyecta un proxy sobre window.dataLayer.push ANTES de que GTM cargue,
-capturando cada push con timestamp, event name y parámetros completos.
+M3 - dataLayer Recorder v2
+Usa un Proxy de JavaScript para interceptar window.dataLayer.push() antes de que
+cualquier otro script (GTM incluido) cargue en la pagina.
 """
 from __future__ import annotations
 
@@ -10,49 +10,81 @@ from typing import Any
 from playwright.async_api import Page
 
 
-# Script inyectado vía add_init_script — corre antes de cualquier otro script
+# Inyectado via add_init_script — corre en cada frame antes de cualquier script
 _PROXY_SCRIPT = """
 (function () {
-    if (window.__dl_recorder_installed__) return;
-    window.__dl_recorder_installed__ = true;
-    window.__dl_captures__ = [];
+    if (window.__dl_recorder_v2__) return;
+    window.__dl_recorder_v2__ = true;
 
-    function intercept(item) {
+    window._auditLog = [];
+    const _origPush = Array.prototype.push;
+
+    function makeProxy(arr) {
+        return new Proxy(arr, {
+            get(target, prop, receiver) {
+                if (prop === 'push') {
+                    return function (...args) {
+                        for (const arg of args) {
+                            try {
+                                window._auditLog.push({
+                                    ts: Date.now(),
+                                    index: target.length,
+                                    payload: JSON.parse(JSON.stringify(arg))
+                                });
+                            } catch (e) {}
+                        }
+                        return _origPush.apply(target, args);
+                    };
+                }
+                const val = Reflect.get(target, prop, receiver);
+                return typeof val === 'function' ? val.bind(target) : val;
+            },
+            set(target, prop, value, receiver) {
+                return Reflect.set(target, prop, value, receiver);
+            }
+        });
+    }
+
+    // Copiar items previos si dataLayer ya existe
+    const _initial = Array.isArray(window.dataLayer)
+        ? [...window.dataLayer]
+        : [];
+    const _arr = [];
+    const _proxy = makeProxy(_arr);
+
+    // Replay items anteriores para que queden en _auditLog
+    for (const item of _initial) {
         try {
-            window.__dl_captures__.push({
-                index: window.__dl_captures__.length,
-                timestamp: Date.now(),
-                data: JSON.parse(JSON.stringify(item))
+            window._auditLog.push({
+                ts: Date.now(),
+                index: _arr.length,
+                payload: JSON.parse(JSON.stringify(item))
             });
         } catch (e) {}
+        _origPush.call(_arr, item);
     }
-
-    function makePush(origPush, target) {
-        return function () {
-            for (var i = 0; i < arguments.length; i++) {
-                intercept(arguments[i]);
-            }
-            return origPush.apply(target, arguments);
-        };
-    }
-
-    // Parchear el array actual si ya existe
-    if (Array.isArray(window.dataLayer)) {
-        window.dataLayer.push = makePush(Array.prototype.push, window.dataLayer);
-    }
-
-    // Interceptar cualquier asignación futura de window.dataLayer
-    var _dl = window.dataLayer || [];
-    if (!Array.isArray(_dl)) _dl = [];
-    _dl.push = makePush(Array.prototype.push, _dl);
 
     Object.defineProperty(window, 'dataLayer', {
         configurable: true,
-        get: function () { return _dl; },
-        set: function (val) {
-            _dl = val;
-            if (_dl && typeof _dl === 'object') {
-                _dl.push = makePush(Array.prototype.push, _dl);
+        enumerable: true,
+        get: () => _proxy,
+        set: (newVal) => {
+            // Si alguien re-asigna dataLayer (ej. window.dataLayer = window.dataLayer || [])
+            // ignoramos la asignacion y seguimos devolviendo el proxy.
+            // Si trae items nuevos los incorporamos.
+            if (Array.isArray(newVal) && newVal !== _proxy) {
+                newVal.forEach(item => {
+                    if (!_arr.includes(item)) {
+                        try {
+                            window._auditLog.push({
+                                ts: Date.now(),
+                                index: _arr.length,
+                                payload: JSON.parse(JSON.stringify(item))
+                            });
+                        } catch (e) {}
+                        _origPush.call(_arr, item);
+                    }
+                });
             }
         }
     });
@@ -61,13 +93,13 @@ _PROXY_SCRIPT = """
 
 
 class DataLayerRecorder:
-    """Instala el proxy y recupera eventos capturados."""
+    """Instala el proxy y recupera el log de eventos capturados."""
 
     def __init__(self) -> None:
         self._page: Page | None = None
 
     async def install(self, page: Page) -> None:
-        """Llama antes de page.goto() para garantizar inyección temprana."""
+        """Llamar antes de page.goto(). El script corre antes que GTM."""
         self._page = page
         await page.add_init_script(_PROXY_SCRIPT)
 
@@ -76,17 +108,17 @@ class DataLayerRecorder:
         if not self._page:
             return []
         try:
-            return await self._page.evaluate("window.__dl_captures__ || []")
+            return await self._page.evaluate("window._auditLog || []")
         except Exception:
             return []
 
     async def get_final_state(self) -> list[dict[str, Any]]:
-        """Lee el estado completo de window.dataLayer al terminar la sesión."""
+        """Lee el estado completo de window.dataLayer al terminar la sesion."""
         if not self._page:
             return []
         try:
             return await self._page.evaluate(
-                "(function(){ try { return JSON.parse(JSON.stringify(window.dataLayer||[])); } catch(e){ return []; } })()"
+                "(function(){try{return JSON.parse(JSON.stringify(window.dataLayer||[]));}catch(e){return [];}})()"
             )
         except Exception:
             return []

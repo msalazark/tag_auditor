@@ -1,0 +1,8 @@
+{
+  "_comment": "construyexperto.pe — login manual via modal en home + OTP por celular",
+  "_flow": "1) export_session.py abre home → 2) tú abres el modal de login → 3) ingresas celular → 4) recibes SMS → 5) ingresas código → 6) presionas ENTER → sesión guardada",
+  "domain": "construyexperto.pe",
+  "strategy": "session_inject",
+  "session_file": "auth/sessions/construyexperto_session.json",
+  "session_ttl_hours": 8
+}

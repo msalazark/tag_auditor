@@ -1,0 +1,25 @@
+{
+  "_comment": "Formulario simple sin 2FA — login clásico usuario+contraseña",
+  "domain": "example.com",
+  "strategy": "form_login",
+  "login_url": "https://example.com/login",
+  "may_require_interaction": false,
+  "notification_mode": "terminal",
+  "interaction_timeout": 120,
+  "webhook_url": null,
+  "selectors": {
+    "username": "input[name='email']",
+    "password": "input[name='password']",
+    "submit": "button[type='submit']"
+  },
+  "success_check": {
+    "type": "url_change",
+    "expected_url_contains": "/dashboard"
+  },
+  "credentials_env": {
+    "username": "AUDIT_USER",
+    "password": "AUDIT_PASS"
+  },
+  "session_file": "auth/sessions/example_session.json",
+  "session_ttl_hours": 8
+}

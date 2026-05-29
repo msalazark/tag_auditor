@@ -1,0 +1,99 @@
+{
+  "site": "ejemplo.com",
+  "client": "Empresa Lead Generation",
+  "version": "1.0",
+  "description": "Spec estandar para sitios orientados a generacion de leads",
+  "events": [
+    {
+      "category": "custom",
+      "name": "page_view",
+      "description": "Vista de pagina — GA4 automatico via gtag",
+      "trigger": "Carga de cualquier pagina del sitio",
+      "priority": "P1",
+      "source": "ga4_hit",
+      "required_params": [
+        {"key": "dt",  "type": "string", "example": "Inicio - Empresa Ejemplo"},
+        {"key": "dl",  "type": "string", "example": "https://ejemplo.com/"}
+      ],
+      "optional_params": [
+        {"key": "dr", "type": "string"}
+      ]
+    },
+    {
+      "category": "leads",
+      "name": "generate_lead",
+      "description": "Envio exitoso de formulario de contacto o cotizacion",
+      "trigger": "Submit exitoso de cualquier formulario de contacto",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",         "type": "string", "example": "generate_lead"},
+        {"key": "form_name",     "type": "string", "example": "formulario_contacto"},
+        {"key": "form_location", "type": "string", "example": "contacto"}
+      ],
+      "optional_params": [
+        {"key": "lead_type", "type": "string"},
+        {"key": "value",     "type": "number"},
+        {"key": "currency",  "type": "string"}
+      ]
+    },
+    {
+      "category": "leads",
+      "name": "whatsapp_click",
+      "description": "Clic en boton o enlace de WhatsApp",
+      "trigger": "Clic en enlace que contenga wa.me o api.whatsapp.com",
+      "priority": "P1",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",        "type": "string", "example": "whatsapp_click"},
+        {"key": "link_url",     "type": "string", "example": "https://wa.me/51999999999"},
+        {"key": "click_source", "type": "string", "example": "header"}
+      ],
+      "optional_params": []
+    },
+    {
+      "category": "leads",
+      "name": "phone_click",
+      "description": "Clic en numero de telefono (href=tel:)",
+      "trigger": "Clic en enlace con href que comienza con tel:",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event", "type": "string", "example": "phone_click"},
+        {"key": "phone", "type": "string", "example": "+5113176000"}
+      ],
+      "optional_params": [
+        {"key": "click_source", "type": "string"}
+      ]
+    },
+    {
+      "category": "custom",
+      "name": "scroll_depth",
+      "description": "Profundidad de scroll — evento GA4 automatico",
+      "trigger": "Al alcanzar 90% de scroll vertical (GA4 built-in)",
+      "priority": "P3",
+      "source": "ga4_hit",
+      "required_params": [
+        {"key": "percent_scrolled", "type": "number", "example": 90}
+      ],
+      "optional_params": []
+    },
+    {
+      "category": "custom",
+      "name": "video_play",
+      "description": "Reproduccion de video embebido",
+      "trigger": "El usuario hace play en un video de YouTube/Vimeo embebido",
+      "priority": "P2",
+      "source": "dataLayer",
+      "required_params": [
+        {"key": "event",       "type": "string", "example": "video_play"},
+        {"key": "video_title", "type": "string", "example": "Video Corporativo"},
+        {"key": "video_url",   "type": "string", "example": "https://youtu.be/xxxxx"}
+      ],
+      "optional_params": [
+        {"key": "video_duration", "type": "number"},
+        {"key": "video_percent",  "type": "number"}
+      ]
+    }
+  ]
+}

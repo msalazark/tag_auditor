@@ -1,0 +1,25 @@
+{
+  "_comment": "Login con SSO externo (Google, Microsoft, Okta, etc.) — el auditor completa el flow en el browser",
+  "domain": "app.example.com",
+  "strategy": "form_login",
+  "login_url": "https://app.example.com/auth/login",
+  "may_require_interaction": true,
+  "notification_mode": "terminal",
+  "interaction_timeout": 300,
+  "webhook_url": null,
+  "selectors": {
+    "username": "input[type='email']",
+    "password": "input[type='password']",
+    "submit": "button[type='submit']"
+  },
+  "success_check": {
+    "type": "url_change",
+    "expected_url_contains": "app.example.com"
+  },
+  "credentials_env": {
+    "username": "GOOGLE_USER",
+    "password": "GOOGLE_PASS"
+  },
+  "session_file": "auth/sessions/sso_session.json",
+  "session_ttl_hours": 1
+}

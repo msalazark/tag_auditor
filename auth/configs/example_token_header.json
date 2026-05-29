@@ -1,0 +1,10 @@
+{
+  "_comment": "Autenticación por Bearer token en header HTTP — típico para APIs o SPAs con JWT",
+  "domain": "api.example.com",
+  "strategy": "token_header",
+  "token_env": "AUDIT_TOKEN",
+  "token_header": "Authorization",
+  "token_prefix": "Bearer ",
+  "session_file": "auth/sessions/api_session.json",
+  "session_ttl_hours": 24
+}
