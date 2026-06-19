@@ -122,6 +122,7 @@ node_modules/
 # e.g., reports/, exports/
 reports/
 exports/
+sessions/
 
 # Auth — sesiones y screenshots (contienen cookies/tokens)
 auth/sessions/*.json

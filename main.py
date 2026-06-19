@@ -28,20 +28,26 @@ from auditor import SpecError, TagAuditor
               help="Segundos de espera adicional tras networkidle")
 @click.option("--output", default="reports", show_default=True,
               help="Carpeta de output para reportes")
-def main(url: str, spec: str, headless: str, timeout: int, output: str) -> None:
+@click.option("--session", default=None, show_default=True,
+              help="Path al JSON de sesion generado por login_helper.py (para sitios con login)")
+def main(url: str, spec: str, headless: str, timeout: int, output: str, session: str | None) -> None:
     """Tag Audit Tool v2 -- audita GTM/GA4/dataLayer contra una spec personalizada."""
     headless_bool = headless.lower() not in ("false", "0", "no")
 
     click.echo(f"\n  Auditando : {url}")
     click.echo(f"  Spec      : {spec}")
     click.echo(f"  Headless  : {headless_bool}")
-    click.echo(f"  Timeout   : {timeout}s extra\n")
+    click.echo(f"  Timeout   : {timeout}s extra")
+    if session:
+        click.echo(f"  Sesion    : {session}")
+    click.echo("")
 
     auditor = TagAuditor(
         spec_path=spec,
         headless=headless_bool,
         timeout=timeout,
         output_dir=output,
+        session_path=session,
     )
 
     try:

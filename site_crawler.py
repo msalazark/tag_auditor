@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -160,10 +161,17 @@ class SiteCrawler:
                 if url in discovered or depth > self.MAX_CRAWL_DEPTH:
                     continue
                 try:
-                    await page.goto(url, wait_until="domcontentloaded", timeout=self.timeout * 1000)
+                    await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                    # Esperar networkidle para SPAs que renderizan links con JS
+                    try:
+                        await page.wait_for_load_state("networkidle", timeout=8_000)
+                    except Exception:
+                        pass
+                    await asyncio.sleep(1.5)
                 except Exception:
                     continue
                 discovered[url] = self._make_item(url, depth, source)
+                # Buscar tanto <a href> como rutas en atributos data- y router-link (frameworks JS)
                 anchors = await page.eval_on_selector_all(
                     "a[href]",
                     "elements => elements.map(el => el.getAttribute('href'))",

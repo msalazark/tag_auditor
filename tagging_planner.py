@@ -33,7 +33,7 @@ MODEL_LABELS: dict[str, str] = {
     "claude-opus-4-7":   "Opus 4.7    — máxima calidad",
 }
 
-AVG_OUTPUT_TOKENS_PER_PAGE = 450
+AVG_OUTPUT_TOKENS_PER_PAGE = 900
 
 
 # ── Pydantic models para structured output ───────────────────────────────────
@@ -125,8 +125,8 @@ async def extract_page_elements(page: Page, url: str) -> dict[str, Any]:
 
     try:
         buttons = await page.eval_on_selector_all(
-            "button, input[type=submit], input[type=button], [role=button]",
-            "els => els.filter(e => e.offsetParent !== null)"
+            "button, input[type=submit], input[type=button], [role=button], a[class*=btn], a[class*=button]",
+            "els => els"
             ".map(e => (e.innerText||e.value||e.getAttribute('aria-label')||'').trim())"
             ".filter(t => t.length > 1)"
             ".slice(0, 30)"
@@ -137,7 +137,7 @@ async def extract_page_elements(page: Page, url: str) -> dict[str, Any]:
     try:
         links = await page.eval_on_selector_all(
             "a[href]",
-            "els => els.filter(e => e.offsetParent !== null)"
+            "els => els"
             ".map(e => ({text: e.innerText.trim().slice(0,60), href: e.getAttribute('href')||''}))"
             ".filter(l => l.text.length > 2)"
             ".slice(0, 40)"
@@ -161,8 +161,8 @@ async def extract_page_elements(page: Page, url: str) -> dict[str, Any]:
 
     try:
         ctas = await page.eval_on_selector_all(
-            "[class*=cta], [class*=btn-], [class*=button], [class*=call-to-action]",
-            "els => [...new Set(els.filter(e => e.offsetParent !== null)"
+            "[class*=cta], [class*=btn], [class*=button], [class*=call-to-action], [class*=hero] a",
+            "els => [...new Set(els"
             ".map(e => e.innerText.trim()).filter(t => t.length > 2))].slice(0,15)"
         )
     except Exception:
@@ -212,6 +212,7 @@ async def visit_url_list(
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_load_state("load", timeout=8000)
+                await page.wait_for_timeout(3000)
                 elements = await extract_page_elements(page, page.url)
                 results.append(elements)
             except Exception:
@@ -270,6 +271,7 @@ async def crawl_pages(
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_load_state("load", timeout=8000)
+                await page.wait_for_timeout(3000)
             except Exception:
                 continue
 
@@ -366,18 +368,21 @@ def analyze_page(
     try:
         response = client.messages.parse(
             model=model,
-            max_tokens=1500,
+            max_tokens=4096,
             system=_SYSTEM,
             messages=[{"role": "user", "content": _build_prompt(page_data)}],
             output_format=PageAnalysis,
         )
-        return response.parsed_output
+        if response.parsed_output is not None:
+            return response.parsed_output
+        raise ValueError("parsed_output es None")
     except Exception as exc:
+        print(f"\n    [DEBUG parse] {type(exc).__name__}: {exc}", flush=True)
         # Fallback: intentar parse manual de JSON en la respuesta
         try:
             response = client.messages.create(
                 model=model,
-                max_tokens=1500,
+                max_tokens=4096,
                 system=_SYSTEM + "\n\nResponde ÚNICAMENTE con JSON válido siguiendo el schema de PageAnalysis.",
                 messages=[{"role": "user", "content": _build_prompt(page_data)}],
             )
@@ -389,6 +394,6 @@ def analyze_page(
             if match:
                 data = json.loads(match.group())
                 return PageAnalysis(**data)
-        except Exception:
-            pass
+        except Exception as exc2:
+            print(f"\n    [DEBUG fallback] {type(exc2).__name__}: {exc2}", flush=True)
         return None

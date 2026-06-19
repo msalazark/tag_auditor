@@ -18,9 +18,112 @@ export ANTHROPIC_API_KEY=sk-ant-...   # requerido solo para tag-plan
 
 ---
 
+## Flujo recomendado
+
+**Sitios públicos:**
+```
+1. crawl.py         →  descubre URLs y las agrupa por patrón de ruta (JSON)
+2. crawl_report.py  →  genera reporte HTML con tipos inferidos y comandos listos
+3. (selección manual)   el auditor elige una URL representativa por tipo de página
+4. main.py          →  audita cada URL contra una spec y genera reporte HTML
+```
+
+**Sitios con login / SPAs autenticadas:**
+```
+1. site_main.py assisted  →  navegar manualmente + capturar todo en tiempo real (JSON)
+2. assisted_urls.py       →  extrae URLs navegadas del JSON asistido
+3. crawl_report.py        →  genera reporte HTML con tipos inferidos y comandos listos
+4. main.py / tag-plan     →  auditar o buscar oportunidades
+```
+
+**Ejemplo completo para un sitio corporativo:**
+
+```bash
+# Paso 1 — descubrir estructura del sitio
+python crawl.py --url https://www.cementospacasmayo.com.pe/
+
+# Salida en consola:
+#   Patrón                                          URLs   Ejemplo
+#   /                                                  1   https://...
+#   /productos-servicios/soluciones-categorias/*/      8   https://.../cementos/
+#   /contacto/*/                                       2   https://.../formulario/
+#   /noticias/*/                                      12   https://.../nota-prensa/
+
+# Paso 2 — auditar páginas representativas
+python main.py --url https://www.cementospacasmayo.com.pe/ \
+               --spec specs/example_corporate.json
+
+python main.py --url https://www.cementospacasmayo.com.pe/productos-servicios/ \
+               --spec specs/example_corporate.json
+
+python main.py --url https://www.cementospacasmayo.com.pe/contacto/formulario-contacto/ \
+               --spec specs/example_corporate.json
+```
+
+---
+
 ## Comandos disponibles
 
-### 1. `main.py` — Auditoría de URL única con spec
+### 1. `crawl.py` — Descubrimiento de URLs por patrón
+
+Descubre todas las URLs del sitio (vía sitemap → robots.txt → crawl superficial) y las agrupa por patrón de ruta para facilitar la selección manual de páginas a auditar.
+
+```bash
+python crawl.py --url https://www.sitio.com
+python crawl.py --url https://www.sitio.com --out reports/mis_urls.json
+python crawl.py --url https://intranet.com --session sessions/cliente.json
+```
+
+**Salida en consola:**
+```
+  Dominio   : www.cementospacasmayo.com.pe
+  URLs      : 45  (fuente: sitemap)
+
+  Patrón                                          URLs   Ejemplo
+  ─────────────────────────────────────────────────────────────────────
+  /                                                  1   https://www.cementospacasmayo.com.pe/
+  /acerca-de/*/                                      3   https://.../acerca-de/historia/
+  /contacto/formulario-contacto/                     1   https://.../contacto/formulario-contacto/
+  /noticias/*/                                      12   https://.../noticias/nota-de-prensa/
+  /productos-servicios/soluciones-categorias/*/      8   https://.../soluciones-categorias/cementos/
+  /relacion-con-inversores/*/                        5   https://.../relacion-con-inversores/
+
+  JSON guardado en : reports/www_cementospacasmayo_com_pe_urls.json
+```
+
+| Flag | Default | Descripción |
+|---|---|---|
+| `--url` | requerido | URL raíz del sitio |
+| `--out` | `reports/{domain}_urls.json` | Archivo JSON de salida |
+| `--headless` | `true` | Modo headless (solo si hace crawl superficial) |
+| `--timeout` | `3` | Segundos de espera por página |
+| `--session` | — | Sesión para sitios con login (`login_helper.py`) |
+
+---
+
+### 2. `crawl_report.py` — Reporte HTML del crawl
+
+Convierte el JSON generado por `crawl.py` en un reporte HTML interactivo con:
+- KPIs: total de URLs, patrones y prioridades
+- Tipo de página inferido automáticamente por patrón (Home, Ficha de Producto, Lead Form, etc.)
+- Comando `main.py` listo para copiar por cada patrón
+- Lista expandible de URLs por grupo
+- Alerta si el sitemap genera URLs con doble barra `//`
+
+```bash
+python crawl_report.py reports/www_cementospacasmayo_com_pe_urls.json
+python crawl_report.py reports/urls.json --spec specs/example_ecommerce.json
+```
+
+| Flag | Default | Descripción |
+|---|---|---|
+| `CRAWL_JSON` | requerido | Path al JSON generado por `crawl.py` |
+| `--spec` | `specs/example_corporate.json` | Spec que aparecerá en los comandos sugeridos |
+| `--out` | `{mismo dir}/{nombre}_report.html` | Path alternativo para el HTML |
+
+---
+
+### 3. `main.py` — Auditoría de URL única con spec
 
 Valida una URL específica contra una spec JSON personalizada. Genera reporte HTML con score P1, brechas y timeline de dataLayer.
 
@@ -368,7 +471,11 @@ Specs incluidas: `example_ecommerce.json`, `example_leadgen.json`, `example_corp
 
 ```
 tag_auditor/
-├── main.py                     # Auditoría URL única con spec
+├── crawl.py                    # Paso 1: descubre URLs y las agrupa por patrón de ruta
+├── crawl_report.py             # Paso 1b: genera reporte HTML del crawl con tipos inferidos
+├── assisted_urls.py            # Extrae URLs de sesión asistida → formato compatible con crawl_report.py
+├── main.py                     # Paso 2: auditoría URL única con spec
+├── login_helper.py             # Captura sesión autenticada para sitios con login
 ├── site_main.py                # CLI multi-modal (audit, assisted, batch, tag-plan, report, auth-only)
 ├── auditor.py                  # Motor de auditoría + ReportGenerator
 ├── tagging_planner.py          # Crawler de elementos + análisis IA con Claude

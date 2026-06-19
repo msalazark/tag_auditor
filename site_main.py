@@ -378,8 +378,8 @@ def batch(urls: str, headless: str, timeout: int, output: str, auth: str | None)
 
 def _parse_urls_file(filepath: str) -> list[tuple[str, str, str]]:
     """
-    Lee .txt o .csv y retorna lista de (url, tipo, nombre).
-    Ignora líneas en blanco y comentarios (#).
+    Lee .txt, .csv o .json (formato crawl.py / assisted_urls.py)
+    y retorna lista de (url, tipo, nombre).
     """
     path = Path(filepath)
     if not path.exists():
@@ -387,8 +387,35 @@ def _parse_urls_file(filepath: str) -> list[tuple[str, str, str]]:
         sys.exit(1)
 
     suffix = path.suffix.lower()
-    lines  = path.read_text(encoding="utf-8").splitlines()
-    result: list[tuple[str, str, str]] = []
+
+    # JSON de crawl.py / assisted_urls.py — extrae una URL representativa por patrón
+    if suffix == ".json":
+        data = json.loads(path.read_text(encoding="utf-8"))
+        result: list[tuple[str, str, str]] = []
+        for pattern in data.get("patterns", []):
+            url  = pattern.get("example", "")
+            name = pattern.get("pattern", url)
+            if url and url.startswith("http"):
+                url_type = _infer_type(url)
+                result.append((url, url_type, name))
+        if not result:
+            # fallback: leer campo urls[] si no hay patterns
+            for item in data.get("urls", []):
+                url = item.get("url", "")
+                if url and url.startswith("http"):
+                    result.append((url, _infer_type(url), url))
+        return result
+
+    raw = path.read_bytes()
+    # Detecta BOM UTF-16 (PowerShell echo) y UTF-8 BOM
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        text = raw.decode("utf-16")
+    elif raw[:3] == b"\xef\xbb\xbf":
+        text = raw[3:].decode("utf-8")
+    else:
+        text = raw.decode("utf-8")
+    lines  = text.splitlines()
+    result = []
 
     for line in lines:
         line = line.strip()
@@ -542,13 +569,15 @@ async def _run_batch(
               help="Carpeta de output")
 @click.option("--auth", default=None,
               help="Path al JSON de config de auth (para sitios con login)")
+@click.option("--session", default=None,
+              help="Path al JSON de sesión generado por login_helper.py (atajo para --auth)")
 @click.option("--yes", "-y", is_flag=True, default=False,
               help="Saltar confirmación de costo y ejecutar directamente")
 @click.option("--api-key", default=None, envvar="ANTHROPIC_API_KEY",
               help="API key de Anthropic (o variable ANTHROPIC_API_KEY)")
 def tag_plan(
     url: str | None, urls_file: str | None, pages: int, model: str, headless: str,
-    output: str, auth: str | None, yes: bool, api_key: str | None,
+    output: str, auth: str | None, session: str | None, yes: bool, api_key: str | None,
 ) -> None:
     """
     Identifica oportunidades de tagging GA4/GTM con análisis IA.
@@ -577,14 +606,14 @@ def tag_plan(
     asyncio.run(_run_tag_plan(
         url, urls_file, pages,
         model, headless.lower() not in ("false", "0", "no"),
-        output, auth, yes, api_key,
+        output, auth, session, yes, api_key,
     ))
 
 
 async def _run_tag_plan(
     url: str | None, urls_file: str | None, max_pages: int,
     model: str, headless: bool,
-    output: str, auth: str | None, skip_confirm: bool, api_key: str,
+    output: str, auth: str | None, session: str | None, skip_confirm: bool, api_key: str,
 ) -> None:
     import anthropic as _anthropic
     from tagging_planner import (
@@ -594,7 +623,14 @@ async def _run_tag_plan(
     from modules.tagging_report import generate_tagging_report
 
     session_file: str | None = None
-    if auth:
+    # --session tiene prioridad sobre --auth
+    if session:
+        if Path(session).exists():
+            session_file = session
+            click.echo(f"  Sesion activa: {session}")
+        else:
+            click.echo(f"  [ERROR] Archivo de sesion no encontrado: {session}", err=True)
+    elif auth:
         try:
             auth_cfg = json.loads(Path(auth).read_text(encoding="utf-8"))
             sf = auth_cfg.get("session_file", "")

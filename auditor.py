@@ -33,11 +33,13 @@ class TagAuditor:
         headless: bool = True,
         timeout: int = 3,
         output_dir: str = "reports",
+        session_path: str | None = None,
     ) -> None:
-        self._spec_path  = spec_path
-        self._headless   = headless
-        self._timeout    = timeout
-        self._output_dir = output_dir
+        self._spec_path    = spec_path
+        self._headless     = headless
+        self._timeout      = timeout
+        self._output_dir   = output_dir
+        self._session_path = session_path
 
     # ── carga y validacion de spec ────────────────────────────────────────────
 
@@ -66,16 +68,25 @@ class TagAuditor:
     async def run(self, url: str) -> dict[str, Any]:
         spec = self.load_spec()
 
+        # Valida que el archivo de sesion exista antes de navegar
+        if self._session_path and not Path(self._session_path).exists():
+            raise SpecError(f"Archivo de sesion no encontrado: {self._session_path}")
+
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=self._headless)
-            context = await browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent=(
+
+            context_kwargs: dict[str, Any] = {
+                "viewport": {"width": 1280, "height": 800},
+                "user_agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/124.0.0.0 Safari/537.36"
                 ),
-            )
+            }
+            if self._session_path:
+                context_kwargs["storage_state"] = self._session_path
+
+            context = await browser.new_context(**context_kwargs)
             page = await context.new_page()
 
             # M3 — proxy dataLayer ANTES de cualquier script

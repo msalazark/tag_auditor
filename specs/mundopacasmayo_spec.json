@@ -1,0 +1,41 @@
+{
+  "site": "www.mundopacasmayo.com.pe",
+  "client": "Cementos Pacasmayo S.A.A.",
+  "version": "1.0",
+  "description": "Spec de auditoría para Mundo Pacasmayo — Angular SPA con GTM-NZ744CMS. Cubre CTAs del hero/slider y links del footer.",
+  "events": [
+    {
+      "category": "custom",
+      "name": "cta_click",
+      "description": "Clic en cualquiera de los 6 botones CTA del slider/hero de la homepage",
+      "trigger": "Clic en botón CTA dentro de la sección de sliders (hero/carousel)",
+      "priority": "P1",
+      "source": "ga4_hit",
+      "required_params": [
+        {"key": "event_name",    "type": "string", "example": "cta_click"},
+        {"key": "cta_text",      "type": "string", "example": "Conoce Cementos Pacasmayo"},
+        {"key": "cta_position",  "type": "string", "example": "slide_1"},
+        {"key": "cta_url",       "type": "string", "example": "https://www.cementospacasmayo.com.pe/"}
+      ],
+      "optional_params": [
+        {"key": "cta_section", "type": "string"}
+      ]
+    },
+    {
+      "category": "custom",
+      "name": "footer_link_click",
+      "description": "Clic en cualquier link del footer (enlaces, redes sociales, legales)",
+      "trigger": "Clic en enlace dentro del elemento footer",
+      "priority": "P2",
+      "source": "ga4_hit",
+      "required_params": [
+        {"key": "event_name", "type": "string", "example": "footer_link_click"},
+        {"key": "link_text",  "type": "string", "example": "Contáctanos"},
+        {"key": "link_url",   "type": "string", "example": "https://www.cementospacasmayo.com.pe/contacto/formulario-contacto"}
+      ],
+      "optional_params": [
+        {"key": "link_category", "type": "string"}
+      ]
+    }
+  ]
+}
